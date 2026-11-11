@@ -3,6 +3,7 @@
 !.gitignore
 !flake.nix
 !flake.lock
+!LICENSE
 !README.md
 !AGENTS.md
 !.jj.toml
@@ -21,3 +22,4 @@
 
 !host/
 !bridge/
+!examples/
