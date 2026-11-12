@@ -1,24 +1,86 @@
 const std = @import("std");
-const Io = std.Io;
+const RocdogAllocator = @import("RocdogAllocator.zig");
 
-pub fn main(init: std.process.Init) !void {
-    const args = args: {
-        if (init.minimal.args.vector.len <= 1) {
-            std.log.err("missing arguments", .{});
-            return error.MissingArgs;
-        }
-        var args = init.minimal.args.iterate();
-        _ = args.skip();
-        while (args.next()) |arg| {
-            std.log.debug("{s}", .{arg});
-        }
-        break :args .{};
+var g_alloc_instance: std.heap.DebugAllocator(.{}) = .init;
+extern fn roc_main() callconv(.c) void;
+
+fn main() callconv(.c) void {
+    defer if (g_alloc_instance.deinit() == .leak) {
+        std.log.err("rocdog#std.heap.DebugAllocator detected a leak", .{});
+        std.process.exit(2);
     };
-    _ = args;
-
-    var stdout_buffer: [1024]u8 = undefined;
-    var stdout_file_writer: Io.File.Writer = .init(.stdout(), init.io, &stdout_buffer);
-    const stdout_writer = &stdout_file_writer.interface;
-    // try stdout_writer.print("", .{});
-    try stdout_writer.flush();
+    return roc_main();
 }
+
+fn rocAlloc(size: usize, alignment: usize) callconv(.c) ?[*]u8 {
+    _ = alignment;
+    std.debug.assert(size < std.math.maxInt(RocdogAllocator.USize)); // assert truncate value cast can fit
+    const buffer = RocdogAllocator.proxyAlloc(g_alloc_instance.allocator(), @truncate(size)) catch |err| {
+        std.log.err("platform#rocAlloc: {s}", .{ @errorName(err) });
+        return null;
+    };
+    return @ptrCast(buffer);
+}
+
+fn rocFree(_ptr: ?[*]u8, alignment: usize) callconv(.c) void {
+    _ = alignment;
+    return if (_ptr) |ptr| RocdogAllocator.proxyFree(g_alloc_instance.allocator(), ptr);
+}
+
+fn rocReAlloc(_ptr: ?[*]u8, new_size: usize, alignment: usize) callconv(.c) ?[*]u8 {
+    _ = alignment;
+    std.debug.assert(new_size < std.math.maxInt(RocdogAllocator.USize)); // assert truncate value cast can fit
+    if (_ptr) |ptr| {
+        const new_buffer = RocdogAllocator.proxyReAlloc(g_alloc_instance.allocator(), ptr, @truncate(new_size)) catch |err| {
+            std.log.err("platform#rocReAlloc: {s}", .{ @errorName(err) });
+            return null;
+        };
+        return @ptrCast(new_buffer);
+    } else {
+        return null;
+    }
+
+    unreachable;
+}
+
+fn rocDbg(_bytes: ?[*]u8, len: usize) callconv(.c) void {
+    const fmt = "platform#debug: ";
+    return
+        if (_bytes) |bytes| std.log.debug(fmt ++ "{s}", .{ bytes[0..len] })
+        else std.log.debug(fmt ++ "<no bytes sent with size of {d}>", .{ len })
+    ;
+}
+
+fn rocExpectFailed(_bytes: ?[*]u8, len: usize) callconv(.c) void {
+    const fmt = "platform#expect: ";
+    return
+        if (_bytes) |bytes| std.log.debug(fmt ++ "{s}", .{ bytes[0..len] })
+        else std.log.debug(fmt ++ "<no bytes sent with size of {d}>", .{ len })
+    ;
+}
+
+fn rocCrashed(_bytes: ?[*]u8, len: usize) callconv(.c) noreturn {
+    const fmt = "platform#crashed: ";
+    if (_bytes) |bytes| {
+        std.log.debug(fmt ++ "{s}", .{ bytes[0..len] });
+    } else {
+        std.log.debug(fmt ++ "<nil bytes with size of {d}>", .{ len });
+    }
+    return std.process.exit(1);
+}
+
+comptime {
+    for (.{
+        .{ &main,            "main"              },
+        .{ &rocAlloc,        "roc_alloc"         },
+        .{ &rocFree,         "roc_dealloc"       },
+        .{ &rocReAlloc,      "roc_realloc"       },
+        .{ &rocDbg,          "roc_dbg"           },
+        .{ &rocExpectFailed, "roc_expect_failed" },
+        .{ &rocCrashed,      "roc_crashed"       },
+    }) |value| {
+        @export(value[0], .{ .name = value[1], .linkage = .strong, .visibility = .hidden });
+    }
+}
+
+test { _ = std.testing.refAllDecls(@This()); }

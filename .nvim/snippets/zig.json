@@ -6,5 +6,9 @@
     "assert": {
         "prefix": "assert",
         "body": "std.debug.assert($1);"
+    },
+    "exit": {
+        "prefix": "exit",
+        "body": "std.process.exit($1);"
     }
 }

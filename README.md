@@ -6,9 +6,8 @@ roc platform for rocdogging roc
 
 ## Using the rocdog platform
 
-### Using the platform from pre-built binaries
+[More Examples](./examples/)
 
-### Using the platform with nix flakes
 ```roc
 app [main!] { pf: platform "" }
 
@@ -17,7 +16,9 @@ main! = |_| {
 }
 ```
 
-### [Examples](./examples/)
+### Using the platform from pre-built binaries
+
+### Using the platform with nix flakes
 
 ## Developing the rocdog platform
 
