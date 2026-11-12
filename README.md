@@ -18,6 +18,7 @@ main! = |_| {
 ```
 
 ### [Examples](./examples/)
+* [glibc puts hello world](./examples/glibc-hello-world/)
 
 ## Developing the rocdog platform
 
