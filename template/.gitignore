@@ -1,0 +1,8 @@
+**
+.*
+!.gitignore
+!/flake.nix
+!/package.nix
+!/shell.nix
+!/do
+!/main.roc
