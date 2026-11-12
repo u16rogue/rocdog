@@ -36,5 +36,22 @@ main! = |_| {
 ### Building
 ***TODO***
 
+## Maintainer Verification
+[minisign](https://jedisct1.github.io/minisign/) is used to create and verify signatures
+```
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+rocdog maintainer minisign pubkey: `RWRLVHlE0m6ia/agZpBElZOSlO5er4iTIE8jeNzi3tdwq5UhFujxD+AN`
+
+-----BEGIN PGP SIGNATURE-----
+
+iHUEARYKAB0WIQTJs5jAXl3pZ+QrlCfitMGnOvZcvwUCavWBtwAKCRDitMGnOvZc
+v0nYAQCjd98kma7QKgbcotnxnXdTRQbW3qw6Yrx0Kb8qCIYppgD/WWozNTOP0iWc
+q6AA3KyD1IdMM68SuY2ZO2CV7Gnevww=
+=RrWQ
+-----END PGP SIGNATURE-----
+```
+
 ## License
 [LGPL v2.1](./LICENSE)

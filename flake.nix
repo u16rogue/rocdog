@@ -28,6 +28,7 @@
                 inputsFrom = lib.attrValues shells;
                 packages = with pkgs; [
                     git jujutsu # vcs
+                    minizign
                     nil bash-language-server shellcheck lua-language-server # common lsp
                 ];
                 shellHook = /*bash*/ ''
