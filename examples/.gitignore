@@ -1,4 +1,4 @@
 **
 .*
-!.gitignore
-!glibc-hello-world/
+!/.gitignore
+!/glibc-hello-world/

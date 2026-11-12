@@ -1,6 +1,6 @@
 **
 .*
-!.gitignore
+!/.gitignore
 !/flake.nix
 !/package.nix
 !/shell.nix
