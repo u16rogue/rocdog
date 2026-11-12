@@ -1,7 +1,6 @@
 {
     inputs = {
         nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-        nixpkgs-pin.url = "github:nixos/nixpkgs/f4a03c008967841f2a0b3cb7c436fc6fc31671f6";
         roc-overlay = { url = "github:roc-lang/roc-overlay"; inputs.nixpkgs.follows = "nixpkgs"; inputs.nixpkgs-darwin.follows = "nixpkgs"; };
     };
 
@@ -27,7 +26,10 @@
         devShells = perSystem ({ pkgs, ... }: let shells = callEach pkgs "shell.nix"; in shells // {
             default = pkgs.mkShellNoCC {
                 inputsFrom = lib.attrValues shells;
-                packages = with pkgs; [ git jujutsu nil bash-language-server shellcheck lua-language-server ];
+                packages = with pkgs; [
+                    git jujutsu # vcs
+                    nil bash-language-server shellcheck lua-language-server # common lsp
+                ];
                 shellHook = /*bash*/ ''
                     export NIX_FRAGMENT="default"
                     if [ -f "$PWD/.jj.toml" ]; then

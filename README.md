@@ -1,7 +1,10 @@
 # rocdog
 roc platform for rocdogging roc
 
-## Using rocdog
+> [!IMPORTANT]
+> This platform is being developed for `roc-nightly`
+
+## Using the rocdog platform
 
 ### Using the platform from pre-built binaries
 
@@ -16,7 +19,7 @@ main! = |_| {
 
 ### [Examples](./examples/)
 
-## Developing rocdog
+## Developing the rocdog platform
 
 ### Components
 * [host](./host/) - The host platform in zig that's linked with the roc runtime.

@@ -1,25 +1,26 @@
 **
 .*
 !.gitignore
-!flake.nix
-!flake.lock
-!LICENSE
-!README.md
-!AGENTS.md
-!.jj.toml
+!/flake.nix
+!/flake.lock
+!/LICENSE
+!/README.md
+!/AGENTS.md
+!/.jj.toml
 
-!.nyx-sbx/
-!.nyx-sbx/dev-hook.sh
-!.nyx-sbx/share/
+!/.nyx-sbx/
+!/.nyx-sbx/dev-hook.sh
+!/.nyx-sbx/share/
 
-!scripts/
 
-!.ignore
-!.nvim.lua
-!.nvim/
-!.nvim/snippets/
-!.nvim/snippets/*.json
+!/.ignore
+!/.nvim.lua
+!/.nvim/
+!/.nvim/snippets/
+!/.nvim/snippets/*.json
 
-!host/
-!bridge/
-!examples/
+!/host/
+!/bridge/
+!/scripts/
+!/examples/
+!/template/
