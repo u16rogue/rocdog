@@ -11,20 +11,20 @@ pub fn main() callconv(.c) void {
     return roc.provides.main();
 }
 
-/// Roc linking namespace.
+/// Roc linking namespace. Pub functions will be auto force eval'd to ensure they dont
+/// get shaken off by the optimizer (?).
 /// `roc.*`          = roc calls/links
 /// `roc.provides.*` = host calls/links
 const roc = struct {
     const provides = struct {
-        const main = @extern(*const fn () callconv(.c) void, .{ .name = "rocMain" });
+        const main = @extern(*const fn () callconv(.c) void, .{ .name = "roc_main" });
     };
 
     /// Provides a memory allocator implementation to roc
-    fn alloc(size: usize, alignment: usize) callconv(.c) ?[*]u8 {
+    pub fn alloc(size: usize, alignment: usize) callconv(.c) ?[*]u8 {
         comptime @export(&alloc, .{ .name = "roc_alloc", .linkage = .strong, .visibility = .hidden });
         _ = .{alignment};
-        std.debug.assert(size < std.math.maxInt(RocdogAllocator.USize)); // assert truncate value cast can fit
-        const buffer = RocdogAllocator.proxyAlloc(g_alloc_instance.allocator(), @truncate(size)) catch |err| {
+        const buffer = RocdogAllocator.proxyAlloc(g_alloc_instance.allocator(), RocdogAllocator.meta.castToUsize(usize, size)) catch |err| {
             std.log.err("platform#rocAlloc: {s}", .{ @errorName(err) });
             return null;
         };
@@ -32,7 +32,7 @@ const roc = struct {
     }
 
     /// Provides a memory free implementation to roc
-    fn free(ptr: ?[*]u8, alignment: usize) callconv(.c) void {
+    pub fn free(ptr: ?[*]u8, alignment: usize) callconv(.c) void {
         _ = .{alignment};
         comptime @export(&free, .{ .name = "roc_dealloc", .linkage = .strong, .visibility = .hidden });
         std.debug.assert(ptr != null);
@@ -40,12 +40,11 @@ const roc = struct {
     }
 
     /// Provides a memory reallocation implementation to roc
-    fn realloc(ptr: ?[*]u8, new_size: usize, alignment: usize) callconv(.c) ?[*]u8 {
+    pub fn realloc(ptr: ?[*]u8, new_size: usize, alignment: usize) callconv(.c) ?[*]u8 {
         _ = .{alignment};
         comptime @export(&realloc, .{ .name = "roc_realloc", .linkage = .strong, .visibility = .hidden });
         std.debug.assert(ptr != null);
-        std.debug.assert(new_size < std.math.maxInt(RocdogAllocator.USize)); // assert truncate value cast can fit
-        const new_buffer = RocdogAllocator.proxyReAlloc(g_alloc_instance.allocator(), ptr.?, @truncate(new_size)) catch |err| {
+        const new_buffer = RocdogAllocator.proxyReAlloc(g_alloc_instance.allocator(), ptr.?, RocdogAllocator.meta.castToUsize(usize, new_size)) catch |err| {
             std.log.err("platform#rocReAlloc: {s}", .{ @errorName(err) });
             return null;
         };
@@ -53,7 +52,7 @@ const roc = struct {
     }
 
     /// Provides a debug output implementation to roc
-    fn logDbg(bytes: ?[*]u8, len: usize) callconv(.c) void {
+    pub fn logDbg(bytes: ?[*]u8, len: usize) callconv(.c) void {
         comptime @export(&logDbg, .{ .name = "roc_dbg", .linkage = .strong, .visibility = .hidden });
         std.debug.assert(bytes != null);
         std.debug.assert(len != 0);
@@ -61,7 +60,7 @@ const roc = struct {
     }
 
     /// Provides a expect fail output implementation to roc
-    fn logExpectFailed(bytes: ?[*]u8, len: usize) callconv(.c) void {
+    pub fn logExpectFailed(bytes: ?[*]u8, len: usize) callconv(.c) void {
         comptime @export(&logExpectFailed, .{ .name = "roc_expect_failed", .linkage = .strong, .visibility = .hidden });
         std.debug.assert(bytes != null);
         std.debug.assert(len != 0);
@@ -69,13 +68,15 @@ const roc = struct {
     }
 
     /// Provides an irrecoverable crash handler implementation to roc
-    fn handlerCrash(bytes: ?[*]u8, len: usize) callconv(.c) noreturn {
+    pub fn handlerCrash(bytes: ?[*]u8, len: usize) callconv(.c) noreturn {
         comptime @export(&handlerCrash, .{ .name = "roc_crashed", .linkage = .strong, .visibility = .hidden });
         std.debug.assert(bytes != null);
         std.debug.assert(len != 0);
         std.log.err("platform#crashed: {s}", .{ bytes.?[0..len] });
         return std.process.exit(1);
     }
+
+    comptime { for (@typeInfo(@This()).@"struct".decl_names) |decl_name| _ = &@field(@This(), decl_name); } // Forces eval of `roc.*` to ensure the compiler doesn't shake them and skip.
 };
 
 test {

@@ -6,6 +6,16 @@ const std = @import("std");
 /// Fixed type to represent `size` for `RocdogAllocator`
 pub const USize = u32;
 
+pub const meta = struct {
+    /// Truncates a `value` of type `Value` into `USize`. Upcast and downcasts are okay as
+    /// long as `value`'s numeric representation fits into `USize` and therefore this function
+    /// triggers an assertion for that.
+    pub fn castToUsize(comptime Value: type, value: Value) USize {
+        std.debug.assert(value < std.math.maxInt(USize)); // assert truncated value stays the same
+        return @truncate(value);
+    }
+};
+
 /// Rocdog attaches this signature to memory allocations modified by the proxy as a signifier (NOT GUARANTEE) that
 /// it retains integrity. (TODO: this is terribly worded. fix this.)
 const signature_bytes = [_]u8 { 0x42, 0x41, 0x55, 0x00 };
@@ -108,7 +118,7 @@ pub fn normalize(ptr: [*]u8) []u8 {
     return real_base[Metadata.block_size..real_size];
 }
 
-test {
+test "RocdogAllocator" {
     // TODO: test proxyReAlloc
     const testing = std.testing;
     const allocator = testing.allocator;
