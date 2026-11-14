@@ -83,4 +83,8 @@ comptime {
     }
 }
 
-test { _ = std.testing.refAllDecls(@This()); }
+test {
+    _ = .{
+        RocdogAllocator,
+    };
+}
