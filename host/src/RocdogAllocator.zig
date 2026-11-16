@@ -25,7 +25,7 @@ const Metadata = extern struct {
     requested_size: USize,
 
     const block_size = @sizeOf(@This());
-    comptime { if (block_size != 8) @compileError("RocdogAllocator.Metadata is expected to be and must be 8 bytes."); }
+    comptime { if (block_size != 8) @compileError("Metadata is expected to be and must be 8 bytes."); }
 };
 
 /// This is a proxy allocator that applies rocdog related modifications into the memory allocation

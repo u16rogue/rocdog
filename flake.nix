@@ -33,6 +33,7 @@
                 ];
                 shellHook = /*bash*/ ''
                     export NIX_FRAGMENT="default"
+                    export PATH="$PATH:$PWD/scripts/"
                     if [ -f "$PWD/.jj.toml" ]; then
                         export JJ_CONFIG="''${JJ_CONFIG:-''${XDG_CONFIG_HOME:-$HOME/.config}/jj/config.toml}:$PWD/.jj.toml"
                     fi
