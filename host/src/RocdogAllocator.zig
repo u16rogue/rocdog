@@ -4,14 +4,14 @@ const Self = @This();
 const std = @import("std");
 
 /// Fixed type to represent `size` for `RocdogAllocator`
-pub const USize = u32;
+pub const USize = u32; // surely no one is gonna allocate >= 4gb
 
 pub const meta = struct {
     /// Truncates a `value` of type `Value` into `USize`. Upcast and downcasts are okay as
     /// long as `value`'s numeric representation fits into `USize` and therefore this function
     /// triggers an assertion for that.
     pub fn castToUsize(comptime Value: type, value: Value) USize {
-        std.debug.assert(value < std.math.maxInt(USize)); // assert truncated value stays the same
+        std.debug.assert(value <= std.math.maxInt(USize)); // assert truncated value stays the same
         return @truncate(value);
     }
 };
