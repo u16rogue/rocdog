@@ -24,3 +24,8 @@
 !/scripts/
 !/examples/
 !/template/
+
+!/.gitignore
+!/clanker-ref/
+!/clanker-ref/**/
+!/clanker-ref/**/*.md

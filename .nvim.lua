@@ -29,4 +29,10 @@ vim.lsp.config('ts_ls', { root_dir = function(bufnr, on_dir)
     if not tscBinFind(root) then on_dir(root) end
 end })
 
-vim.lsp.enable({ 'nil_ls', 'bashls', 'lua_ls', 'clangd', 'zls', 'roc_ls', 'rust_analyzer', 'tsc', 'ts_ls', 'svelte', 'html', 'cssls', 'jsonls', 'basedpyright', 'teal_ls', })
+vim.lsp.enable({
+    'nil_ls', 'bashls', 'lua_ls',
+    'clangd', 'zls', 'roc_ls', 'rust_analyzer',
+    'tsc', 'ts_ls', 'svelte', 'html', 'cssls', 'jsonls',
+    'basedpyright',
+    'teal_ls',
+})
