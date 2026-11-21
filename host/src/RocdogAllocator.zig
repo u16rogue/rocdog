@@ -1,4 +1,10 @@
-/// This is a proxy/meta allocator specifically for rocdog to implement extra memory processing
+/// This is a proxy/meta allocator specifically for rocdog to implement extra memory processing.
+/// This covers the translation from a formal slice expected in zig into a simple pointer to a buffer
+/// akin to C like platforms (and solving that exact issue of losing the slices' `len` metadata).
+///
+/// Term reference:
+/// "Requested", `req-` - Refers to a slice or the literal memory that was requested as we
+/// may allocate larger than the requested size.
 
 const Self = @This();
 const std = @import("std");
@@ -24,8 +30,8 @@ const Metadata = extern struct {
     signature: [signature_bytes.len]u8,
     requested_size: USize,
 
-    const block_size = @sizeOf(@This());
-    comptime { if (block_size != 8) @compileError("Metadata is expected to be and must be 8 bytes."); }
+    const type_size = @sizeOf(@This());
+    comptime { if (type_size != 8) @compileError("Metadata is expected to be and must be 8 bytes."); }
 };
 
 /// This is a proxy allocator that applies rocdog related modifications into the memory allocation
@@ -41,81 +47,73 @@ const Metadata = extern struct {
 /// This proxy will:
 ///     * Allocate more than the `size` parameter to embed extra metadata that RocdogAllocator will
 ///     take advantage of. This metadata will not be included in the returned slice.
-///
+/// ┌───────────────────────────────────────┐
+/// │buffer = try proxyAlloc(_, size)       │
+/// │  ▲                         │          │
+/// │  │                         ▼          │
+/// │  │           ┌─────┬────┬─────┐       │
+/// │  │   Metadata│Magic│Size│[_]u8│Buffer │
+/// │  │           └─────┴────┴─────┘       │
+/// │  │                         │          │
+/// │  └─────────────────────────┘          │
+/// └───────────────────────────────────────┘
 pub fn proxyAlloc(allocator: std.mem.Allocator, size: USize) std.mem.Allocator.Error![]u8 {
-    const actual_size = Metadata.block_size + size;
-    const block = try allocator.alloc(u8, actual_size);
-
-    std.mem.bytesAsValue(Metadata, block[0..Metadata.block_size]).* = Metadata {
+    const buffer = try allocator.alloc(u8, Metadata.type_size + size);
+    std.mem.bytesAsValue(Metadata, buffer[0..Metadata.type_size]).* = .{
         .signature = signature_bytes,
         .requested_size = size,
     };
-
-    const caller_requested_block = block[Metadata.block_size..];
-
-    // final check if metadata was properly set
-    std.debug.assert(std.mem.eql(
-        u8,
-        block[0..Metadata.block_size],
-        std.mem.asBytes(&Metadata { .signature = signature_bytes, .requested_size = size })
-    ));
-    std.debug.assert(caller_requested_block.len == size); // caller must get the expected size of memory they requested for
-
-    return caller_requested_block;
+    return buffer[Metadata.type_size..];
 }
 
 /// Free an allocated memory by `RocdogAllocator`
 /// UNSAFE: passing a `ptr` that wasn't returned by `proxyAlloc` is undefined behavior.
-pub fn proxyFree(allocator: std.mem.Allocator, ptr: [*]u8) void {
-    const real_base = ptr - Metadata.block_size;
-    const pmetadata = std.mem.bytesAsValue(Metadata, real_base[0..Metadata.block_size]);
-    const real_size = pmetadata.requested_size + Metadata.block_size;
-    std.debug.assert(std.mem.eql(u8, &pmetadata.signature, &signature_bytes));
-    allocator.free(real_base[0..real_size]);
+pub fn proxyFree(allocator: std.mem.Allocator, req_ptr: [*]u8) void {
+    allocator.free(translateReqErasedPtrToReal(req_ptr).asSclice());
 }
 
 /// Reallocate an allocated memory `ptr` by `RocdogAllocator` in `new_size` bytes.
 /// UNSAFE: passing a `ptr` that wasn't returned by `proxyAlloc` is undefined behavior.
-pub fn proxyReAlloc(allocator: std.mem.Allocator, ptr: [*]u8, new_size: USize) std.mem.Allocator.Error![]u8 {
-    const pre_real_base = ptr - Metadata.block_size;
-    const pre_pmetadata = std.mem.bytesAsValue(Metadata, pre_real_base[0..Metadata.block_size]);
-    const pre_real_size = pre_pmetadata.requested_size + Metadata.block_size;
-    std.debug.assert(std.mem.eql(u8, &pre_pmetadata.signature, &signature_bytes));
-
-    const new_real_size = Metadata.block_size + new_size;
-    const new_block = try allocator.realloc(pre_real_base[0..pre_real_size], new_real_size);
-
+pub fn proxyReAlloc(allocator: std.mem.Allocator, req_ptr: [*]u8, new_size: USize) std.mem.Allocator.Error![]u8 {
+    const real = translateReqErasedPtrToReal(req_ptr);
+    const new_real_size = Metadata.type_size + new_size;
+    const new_block = try allocator.realloc(real.asSclice(), new_real_size);
     // Doesn't matter if we got a new address or not our metadata block is at the beginning so it either
     // overwrites the existing block or it just writes the new block into the new address.
-    std.mem.bytesAsValue(Metadata, new_block[0..Metadata.block_size]).* = Metadata {
+    std.mem.bytesAsValue(Metadata, new_block[0..Metadata.type_size]).* = Metadata {
         .signature = signature_bytes,
         .requested_size = new_size,
     };
-
-    const caller_requested_new_block = new_block[Metadata.block_size..];
-
-    // final check if metadata was properly set
-    std.debug.assert(std.mem.eql(
-        u8,
-        new_block[0..Metadata.block_size],
-        std.mem.asBytes(&Metadata { .signature = signature_bytes, .requested_size = new_size })
-    ));
-    std.debug.assert(caller_requested_new_block.len == new_size); // caller must get the expected size of memory they requested for
-
-    return caller_requested_new_block;
+    return new_block[Metadata.type_size..];
 }
 
 /// Given a `ptr` normalize it back to a slice containig a pair of `ptr` and `len` by resolving it
 /// using RocdogAllocator's metadata. This should only be used with memory allocated through RocdogAllocator.
 /// UNSAFE: passing a `ptr` that wasn't returned by `proxyAlloc` is undefined behavior.
-pub fn normalize(ptr: [*]u8) []u8 {
-    const real_base = ptr - Metadata.block_size;
-    const pmetadata = std.mem.bytesAsValue(Metadata, real_base[0..Metadata.block_size]);
-    const real_size = pmetadata.requested_size + Metadata.block_size;
+pub fn normalize(req_ptr: [*]u8) []u8 {
+    const real = translateReqErasedPtrToReal(req_ptr);
+    return req_ptr[0..(real.metadataPtrGet().requested_size)];
+}
 
-    std.debug.assert(std.mem.eql(u8, &pmetadata.signature, &signature_bytes));
+const TranslatedReqPtr = struct {
+    real_base: [*]u8,
 
-    return real_base[Metadata.block_size..real_size];
+    pub fn metadataPtrGet(self: TranslatedReqPtr) *Metadata {
+        return @alignCast(std.mem.bytesAsValue(Metadata, self.real_base[0..Metadata.type_size]));
+    }
+
+    pub fn asSclice(self: TranslatedReqPtr) []u8 {
+        return self.real_base[0..(Metadata.type_size + self.metadataPtrGet().requested_size)];
+    }
+};
+
+/// Translates a requested memory pointer back to its real base address
+/// contained in a helper type.
+/// Asserts that the signature is valid.
+fn translateReqErasedPtrToReal(req_ptr: [*]u8) TranslatedReqPtr {
+    const real_base = req_ptr - Metadata.type_size;
+    std.debug.assert(std.mem.eql(u8, real_base[0..signature_bytes.len], &signature_bytes));
+    return TranslatedReqPtr { .real_base = real_base };
 }
 
 test {
