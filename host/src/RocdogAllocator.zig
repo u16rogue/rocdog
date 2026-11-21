@@ -118,35 +118,6 @@ pub fn normalize(ptr: [*]u8) []u8 {
     return real_base[Metadata.block_size..real_size];
 }
 
-test "RocdogAllocator" {
-    // TODO: test proxyReAlloc
-    const testing = std.testing;
-    const allocator = testing.allocator;
-
-    inline for ([_]u8{ 64, 32, 16, 8, 1, 0 }) |request_size| {
-        const buffer = try proxyAlloc(allocator, request_size);
-        try testing.expectEqual(buffer.len, request_size);
-
-        if (request_size > 0) for (0..request_size) |i| {
-            buffer[i] = @truncate(i + 1);
-        };
-
-        const to_lose_len: [*]u8 = @ptrCast(buffer);
-        try testing.expectEqual(to_lose_len, buffer.ptr);
-
-        const back_to_slice = normalize(to_lose_len);
-        try testing.expectEqual(back_to_slice.ptr, to_lose_len);
-        try testing.expectEqual(back_to_slice.len, request_size);
-        try testing.expectEqual(back_to_slice.ptr, buffer.ptr);
-        try testing.expectEqual(back_to_slice.len, buffer.len);
-
-        if (request_size > 0) for (0..request_size) |i| {
-            const n: u8 = @truncate(i + 1);
-            try testing.expectEqual(to_lose_len[i],   n);
-            try testing.expectEqual(buffer[i],        n);
-            try testing.expectEqual(back_to_slice[i], n);
-        };
-
-        proxyFree(allocator, to_lose_len);
-    }
+test {
+    _ = @import("RocdogAllocator.test.zig");
 }
